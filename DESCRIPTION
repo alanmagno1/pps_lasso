@@ -1,9 +1,9 @@
 Type: Project
-Package: ppslasso
-Title: PPS LASSO Omics Score Pipeline
+Package: omicslasso
+Title: Omics LASSO Score Pipeline
 Version: 0.1.0
-Description: Reproducible scripts for training protein and metabolite based
-    penalized regression models for PPS scores.
+Description: Reproducible scripts for training LASSO-based scores from protein
+    and metabolite predictors for user-specified numeric outcomes.
 Depends:
     R (>= 4.4.0)
 Imports:
@@ -13,7 +13,5 @@ Imports:
     fst,
     getopt,
     glmnet,
-    impute,
-    readr,
-    stringr
+    impute
 Encoding: UTF-8

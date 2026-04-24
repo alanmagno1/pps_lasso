@@ -6,9 +6,7 @@ cran_packages <- c(
   "doParallel",
   "fst",
   "getopt",
-  "glmnet",
-  "readr",
-  "stringr"
+  "glmnet"
 )
 bioc_packages <- c("impute")
 

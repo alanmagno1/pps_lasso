@@ -1,31 +1,38 @@
-# PPS LASSO Omics Score Pipeline
+# Omics LASSO Score Pipeline
 
-This repository contains an R pipeline for training PPS prediction models from
-protein and metabolite features. The main script is `pps_omicscore.R`.
+This repository contains a general R pipeline for training LASSO-based omics
+scores from protein and/or metabolite predictors.
 
-For each PPS column, the pipeline:
+The main script is `lasso_score.R`. It can run three predictor modes:
 
-- loads PPS clusters, protein features, metabolite features, and ID lists;
-- filters features and rows with more than 10% missingness;
-- restricts the merged dataset to disease-free IDs;
-- splits train/test using `id_lists.csv` (`protein` vs `diet` IDs);
-- applies training-derived preprocessing only: imputation, inverse-rank normal
-  transform, and z-score scaling;
-- trains LASSO (`alpha = 1`) and elastic net (`alpha = 0.5`) models with nested
-  cross-validation;
-- saves fold IDs, preprocessing parameters, model weights, predictions, and
-  performance metrics.
+- `proteins`: protein-only score, named `protscore` by default.
+- `metabolites`: metabolite-only score, named `metscore` by default.
+- `combined`: proteins + metabolites score, named `omicscore` by default.
+
+The outcome is not hard-coded. You provide any numeric outcome column in an
+outcome dataset, and the script creates a reproducible 70/30 train/test split.
+
+The pipeline:
+
+- loads an outcome dataset plus protein and/or metabolite predictor datasets;
+- merges samples by an ID column;
+- filters predictors and samples by missingness using the training set;
+- applies predictor preprocessing:
+  - proteins: KNN imputation, inverse-rank normal transform, z-score scaling;
+  - metabolites: half-minimum imputation, inverse-rank normal transform,
+    z-score scaling;
+- scales the outcome within the training set;
+- fits a LASSO model with nested cross-validation to summarize lambda values;
+- evaluates predictions on the held-out 30% test set;
+- saves IDs, preprocessing parameters, feature map, weights, predictions,
+  metrics, and fitted model objects.
 
 ## Repository Structure
 
 ```text
 .
-  pps_omicscore.R          # Main proteins + metabolites pipeline
-  run_pps_omicscore.sh     # Local/SGE launcher
-  run_pps_omiscore.sh      # Backward-compatible launcher with old spelling
-  metscore.R               # Companion metabolite-only pipeline
-  collect.R                # Aggregate PPS score files
-  collate.R                # Collate scores, metrics, and summaries
+  lasso_score.R            # Main generalized score pipeline
+  run_lasso_score.sh       # Local/SGE launcher
   requirements.R           # Installs required R packages
   DESCRIPTION              # Project dependency metadata
   data/README.md           # Expected private data layout
@@ -33,24 +40,25 @@ For each PPS column, the pipeline:
 
 ## Data
 
-By default, `pps_omicscore.R` expects:
+Example private data layout:
 
 ```text
-data/clusters.csv
-data/id_lists.csv
+data/outcome.csv
 data/proteins/proteins_visit_0.fst
 data/metabolites/nmr_threephases.csv
 ```
 
 Required columns:
 
-- `clusters.csv`: `f.eid` plus one or more PPS columns.
-- `id_lists.csv`: at least `disease_free`, `protein`, and `diet` columns.
-- protein file: `f.eid` plus protein feature columns.
-- metabolite file: `f.eid`, `visit`, NMR feature columns, and metadata columns.
+- outcome file: sample ID column plus the numeric outcome column to predict.
+- protein file: sample ID column plus numeric protein feature columns.
+- metabolite file: sample ID column plus numeric metabolite feature columns.
 
-Do not commit individual-level data, UK Biobank data, model outputs, logs, or
-large derived files. The `.gitignore` is configured for that.
+The default sample ID column is `f.eid`, but you can change it with `--id-col`,
+`--protein-id-col`, and `--metabolite-id-col`.
+
+Do not commit individual-level data, restricted biobank data, model outputs,
+logs, or large derived files. The `.gitignore` is configured for that.
 
 ## Install
 
@@ -67,87 +75,103 @@ For a simpler non-locked install, use:
 Rscript requirements.R
 ```
 
-## Run One PPS Locally
+## Run A Score
+
+Protein-only score:
 
 ```bash
-Rscript pps_omicscore.R \
-  --idx 1 \
-  --data-dir data \
-  --out-dir results/omics_score/pps/disease_free \
-  --ncores 4 \
-  --seed 1427
+Rscript lasso_score.R \
+  --outcome-file data/outcome.csv \
+  --outcome-col bmi \
+  --id-col f.eid \
+  --mode proteins \
+  --protein-file data/proteins/proteins_visit_0.fst \
+  --out-dir results
 ```
 
-You can override individual files instead of using `--data-dir`:
+Metabolite-only score:
 
 ```bash
-Rscript pps_omicscore.R \
-  --idx 1 \
-  --prot-file /path/to/proteins_visit_0.fst \
-  --metab-file /path/to/nmr_threephases.csv \
-  --clusters-file /path/to/clusters.csv \
-  --ids-file /path/to/id_lists.csv \
-  --out-dir results/omics_score/pps/disease_free
+Rscript lasso_score.R \
+  --outcome-file data/outcome.csv \
+  --outcome-col bmi \
+  --mode metabolites \
+  --metabolite-file data/metabolites/nmr_threephases.csv \
+  --metabolite-exclude-cols phase,sample_id,plate_id,plate_position,visit,spectrometer \
+  --metabolite-visit-col visit \
+  --metabolite-visit-value "Main Phase" \
+  --drop-pct-cols \
+  --out-dir results
+```
+
+Combined protein + metabolite score:
+
+```bash
+Rscript lasso_score.R \
+  --outcome-file data/outcome.csv \
+  --outcome-col bmi \
+  --mode combined \
+  --protein-file data/proteins/proteins_visit_0.fst \
+  --metabolite-file data/metabolites/nmr_threephases.csv \
+  --out-dir results
 ```
 
 ## Run With the Shell Launcher
 
-Local run:
+The launcher simply activates the optional conda environment and forwards all
+arguments to `lasso_score.R`.
 
 ```bash
-bash run_pps_omicscore.sh 1
+bash run_lasso_score.sh \
+  --outcome-file data/outcome.csv \
+  --outcome-col bmi \
+  --mode combined \
+  --protein-file data/proteins/proteins_visit_0.fst \
+  --metabolite-file data/metabolites/nmr_threephases.csv
 ```
 
-SGE array run:
+SGE run:
 
 ```bash
 mkdir -p logs
-qsub run_pps_omicscore.sh
+qsub run_lasso_score.sh --outcome-file data/outcome.csv --outcome-col bmi --mode proteins --protein-file data/proteins/proteins_visit_0.fst
 ```
 
-The launcher accepts these environment variables:
+Set `LASSO_CONDA_ENV=""` to skip conda activation in the shell launcher.
 
-- `PPS_DATA_DIR`
-- `PPS_PROT_FILE`
-- `PPS_METAB_FILE`
-- `PPS_CLUSTERS_FILE`
-- `PPS_IDS_FILE`
-- `PPS_OUT_DIR`
-- `PPS_NCORES`
-- `PPS_SEED`
-- `PPS_CONDA_ENV`
+## Useful Options
 
-Set `PPS_CONDA_ENV=""` to skip conda activation in the shell launcher.
-
-## Aggregate Outputs
-
-After all PPS jobs finish, aggregate prediction columns and collate summaries:
-
-```bash
-Rscript collect.R --pps-root results/omics_score/pps/disease_free
-Rscript collate.R --pps-root results/omics_score/pps/disease_free
-```
+- `--train-prop`: training proportion. Default is `0.70`.
+- `--alpha`: glmnet alpha. Default is `1` for LASSO; use `0.5` for elastic net.
+- `--lambda-choice`: `lambda_min`, `lambda_1se`, or `both`. Default is `both`.
+- `--feature-missing-threshold`: maximum training-set missingness per feature.
+  Default is `0.10`.
+- `--sample-missing-threshold`: maximum missingness per sample. Default is
+  `0.10`.
+- `--outer-folds` and `--inner-folds`: nested cross-validation fold counts.
+- `--score-name`: output folder/name. If omitted, defaults to
+  `<outcome>_protscore`, `<outcome>_metscore`, or `<outcome>_omicscore`.
 
 ## Outputs
 
-For each PPS, outputs are written under:
+For one run, outputs are written under:
 
 ```text
-results/omics_score/pps/disease_free/<PPS_NAME>/
+results/<score_name>/
   ids/
-  lasso/
-    folds/
-    metrics/
-    scores/
-    weights/
-  elastic_net/
-    folds/
-    metrics/
-    scores/
-    weights/
-  <PPS_NAME>_preproc_params_V3.rds
-  performance_summary_V3.csv
+  folds/
+  metrics/
+  models/
+  scores/
+  weights/
+  run_config.csv
+  <score_name>_feature_map.csv
+  <score_name>_preproc_params.rds
+  performance_summary.csv
 ```
+
+Feature names are prefixed internally as `prot__` and `metab__` to avoid name
+collisions. The feature map keeps the original names.
 
 ## Notes Before Publishing
 
