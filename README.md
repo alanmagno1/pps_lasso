@@ -34,7 +34,6 @@ The pipeline:
   lasso_score.R            # Main generalized score pipeline
   run_lasso_score.sh       # Local/SGE launcher
   requirements.R           # Installs required R packages
-  DESCRIPTION              # Project dependency metadata
   data/README.md           # Expected private data layout
 ```
 
@@ -62,14 +61,7 @@ logs, or large derived files. The `.gitignore` is configured for that.
 
 ## Install
 
-Use R 4.4 or newer. The reproducible environment is recorded in `renv.lock`.
-Recommended setup:
-
-```bash
-Rscript -e 'install.packages("renv", repos = "https://cloud.r-project.org"); renv::restore()'
-```
-
-For a simpler non-locked install, use:
+Use R 4.4 or newer. Install the required packages with:
 
 ```bash
 Rscript requirements.R

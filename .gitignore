@@ -17,10 +17,3 @@ logs/*
 *.Rds
 *.csv.gz
 *.tsv.gz
-
-# renv local library/cache; commit renv.lock and renv/activate.R if generated.
-renv/library/
-renv/staging/
-renv/python/
-renv/sandbox/
-
