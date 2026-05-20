@@ -51,7 +51,7 @@ mode, for example `bmi_protscore`, `bmi_metscore`, or `bmi_omicscore`.
 
 ## Installation
 
-Use R 4.4 or newer.
+Only tested using R 4.3.
 
 Install required packages with:
 
@@ -225,7 +225,7 @@ bash run_lasso_score.sh \
   --metabolite-file data/metabolites/nmr_threephases.csv
 ```
 
-By default, the launcher tries to activate a conda environment named `r-gcc` if
+By default, the launcher tries to activate a conda environment named `lasso` if
 Miniconda is available. To use a different environment:
 
 ```bash
@@ -401,8 +401,6 @@ decrease it, conditional on the preprocessed feature scale.
 - It does not currently include covariate adjustment.
 - It assumes rows are independent samples.
 - It does not create synthetic example data yet.
-- Results depend on sample size, missingness, predictor quality, and whether
-  the train/test split is appropriate for the scientific question.
 
 ## Troubleshooting
 
@@ -444,9 +442,6 @@ and predictor files overlap on the ID column.
 The selected outcome does not vary after filtering/splitting, or the wrong
 column was selected with `--outcome-col`.
 
-## Notes Before Publishing
+## TODOs
 
-- Choose a license before making the repository public.
-- Keep real input data outside git.
-- Add a synthetic `examples/` dataset later if you want users to test the full
-  pipeline without private data.
+- Add a synthetic `examples/` dataset later
