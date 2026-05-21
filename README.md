@@ -41,12 +41,13 @@ mode, for example `bmi_protscore`, `bmi_metscore`, or `bmi_omicscore`.
 
 ```text
 .
-  lasso_score.R            # Main generalized score pipeline
-  run_lasso_score.sh       # Optional local/SGE shell launcher
-  requirements.R           # Installs required R packages
-  data/README.md           # Notes about private input data
-  logs/.gitkeep            # Empty logs directory placeholder
-  results/.gitkeep         # Empty results directory placeholder
+  lasso_score.R              # Main generalized score pipeline
+  generate_synthetic_data.R  # Generates synthetic test datasets
+  run_lasso_score.sh         # Optional local/SGE shell launcher
+  requirements.R             # Installs required R packages
+  data/README.md             # Notes about private input data
+  logs/.gitkeep              # Empty logs directory placeholder
+  results/.gitkeep           # Empty results directory placeholder
 ```
 
 ## Installation
@@ -211,6 +212,22 @@ Rscript lasso_score.R \
   --alpha 0.5
 ```
 
+Custom train/test split:
+
+```bash
+Rscript lasso_score.R \
+  --outcome-file data/outcome.csv \
+  --outcome-col bmi \
+  --mode proteins \
+  --protein-file data/proteins/proteins_visit_0.fst \
+  --train-ids my_train_ids.csv \
+  --test-ids my_test_ids.csv
+```
+
+The ID files must be CSVs with a column matching `--id-col` (default `f.eid`).
+When `--train-ids` and `--test-ids` are both provided, `--train-prop` is
+ignored.
+
 ## Shell Launcher
 
 `run_lasso_score.sh` is a thin wrapper around `lasso_score.R`. It optionally
@@ -280,6 +297,8 @@ Model arguments:
 | Argument | Default | Description |
 | --- | --- | --- |
 | `--train-prop`, `-t` | `0.70` | Proportion of samples assigned to training |
+| `--train-ids`, `-J` | none | CSV with pre-defined training sample IDs (must contain `--id-col`) |
+| `--test-ids`, `-U` | none | CSV with pre-defined test sample IDs (must contain `--id-col`) |
 | `--alpha`, `-a` | `1` | `glmnet` alpha; `1` is LASSO, `0.5` is elastic net |
 | `--lambda-choice`, `-L` | `both` | `lambda_min`, `lambda_1se`, or `both` |
 | `--feature-missing-threshold`, `-F` | `0.10` | Max allowed missingness per feature in training |
@@ -400,7 +419,6 @@ decrease it, conditional on the preprocessed feature scale.
 - It does not currently fit logistic, Cox, or other non-Gaussian models.
 - It does not currently include covariate adjustment.
 - It assumes rows are independent samples.
-- It does not create synthetic example data yet.
 
 ## Troubleshooting
 
@@ -442,6 +460,19 @@ and predictor files overlap on the ID column.
 The selected outcome does not vary after filtering/splitting, or the wrong
 column was selected with `--outcome-col`.
 
+## Synthetic Data
+
+To generate synthetic datasets for testing:
+
+```bash
+Rscript generate_synthetic_data.R
+```
+
+This creates `data/outcome.csv`, `data/proteins/proteins_visit_0.csv`, and
+`data/metabolites/nmr_threephases.csv` with 500 samples by default. Options:
+`--n-samples`, `--n-proteins`, `--n-metabolites`, `--seed`, `--out-dir`.
+
 ## TODOs
 
-- Add a synthetic `examples/` dataset later
+- Add covariate adjustment support
+- Add logistic/Cox regression modes

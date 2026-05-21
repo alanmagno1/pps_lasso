@@ -37,6 +37,8 @@ spec <- matrix(c(
   "score-name",                "N", 1, "character",
   "out-dir",                   "o", 1, "character",
   "train-prop",                "t", 1, "double",
+  "train-ids",                 "J", 1, "character",
+  "test-ids",                  "U", 1, "character",
   "alpha",                     "a", 1, "double",
   "lambda-choice",             "L", 1, "character",
   "feature-missing-threshold", "F", 1, "double",
@@ -82,6 +84,11 @@ usage <- paste(
   "  -k, --outer-folds INTEGER        Outer CV folds for lambda summary (default: 10)",
   "  -K, --inner-folds INTEGER        Inner cv.glmnet folds (default: 10)",
   "  -q, --knn-k INTEGER              KNN imputation k for proteins (default: 10)",
+  "",
+  "Split options:",
+  "  -t, --train-prop NUM             Training split proportion (default: 0.70)",
+  "  -J, --train-ids FILE             CSV with pre-defined training sample IDs",
+  "  -U, --test-ids FILE              CSV with pre-defined test sample IDs",
   "",
   "Runtime/output:",
   "  -N, --score-name NAME            Output score name",
@@ -178,6 +185,9 @@ metabolite_visit_value <- arg_value("metabolite-visit-value")
 drop_pct_cols <- isTRUE(arg_value("drop-pct-cols", FALSE))
 
 train_prop <- check_probability(as.numeric(arg_value("train-prop", 0.70)), "--train-prop")
+train_ids_file <- arg_value("train-ids")
+test_ids_file <- arg_value("test-ids")
+
 alpha <- as.numeric(arg_value("alpha", 1))
 if (is.na(alpha) || alpha < 0 || alpha > 1) {
   stop("--alpha must be between 0 and 1", call. = FALSE)
@@ -211,8 +221,7 @@ if (outer_folds < 2 || inner_folds < 2 || knn_k < 1 || ncores < 1) {
   stop("Fold counts, --knn-k, and --ncores must be positive; folds must be >= 2", call. = FALSE)
 }
 
-default_suffix <- switch(
-  mode,
+default_suffix <- switch(mode,
   proteins = "protscore",
   metabolites = "metscore",
   combined = "omicscore"
@@ -338,9 +347,16 @@ if (nrow(merged) < 10) {
 message(sprintf("Merged %d samples and %d predictor columns", nrow(merged), nrow(feature_map)))
 
 # ---------- 3. Train/test split and feature filters --------------------------
-train_idx <- createDataPartition(merged[[outcome_col]], p = train_prop, list = FALSE)
-train <- copy(merged[train_idx])
-test <- copy(merged[-train_idx])
+if (!is.null(train_ids_file) && !is.null(test_ids_file)) {
+  tr_custom_ids <- fread(train_ids_file)[[id_col]]
+  te_custom_ids <- fread(test_ids_file)[[id_col]]
+  train <- copy(merged[get(id_col) %in% tr_custom_ids])
+  test <- copy(merged[get(id_col) %in% te_custom_ids])
+} else {
+  train_idx <- createDataPartition(merged[[outcome_col]], p = train_prop, list = FALSE)
+  train <- copy(merged[train_idx])
+  test <- copy(merged[-train_idx])
+}
 
 if (nrow(test) < 2) {
   stop("Test set has fewer than 2 samples; reduce --train-prop or add samples", call. = FALSE)
